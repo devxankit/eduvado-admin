@@ -32,12 +32,23 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await axios.post(`${config.API_URL}/auth/login`, {
+      // Validate config
+      if (!config.apiUrl) {
+        throw new Error('API configuration is missing. Please check your configuration.');
+      }
+
+      console.log('[AuthContext] Attempting login to:', `${config.apiUrl}/auth/login`);
+      
+      const response = await axios.post(`${config.apiUrl}/auth/login`, {
         email,
         password,
       });
 
       const { token, user } = response.data;
+      
+      if (!token || !user) {
+        throw new Error('Invalid response from server');
+      }
       
       if (user.role !== 'admin') {
         throw new Error('Access denied. Admin privileges required.');
@@ -46,14 +57,31 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
+      // Debug logging
+      console.log('[AuthContext] Token stored:', token ? 'Present' : 'Missing');
+      console.log('[AuthContext] User stored:', user);
+      console.log('[AuthContext] Axios headers set:', axios.defaults.headers.common);
+      
       setUser(user);
       navigate('/dashboard');
       toast.success('Login successful!');
     } catch (error) {
+      console.error('[AuthContext] Login error:', error);
+      
       if (error.message === 'Access denied. Admin privileges required.') {
         throw error;
       }
-      toast.error(error.response?.data?.message || 'Login failed');
+      
+      if (error.code === 'ERR_NETWORK') {
+        toast.error('Network error. Please check your connection and try again.');
+      } else if (error.response?.status === 404) {
+        toast.error('Login endpoint not found. Please check your API configuration.');
+      } else if (error.response?.status === 500) {
+        toast.error('Server error. Please try again later.');
+      } else {
+        toast.error(error.response?.data?.message || 'Login failed. Please try again.');
+      }
       throw error;
     }
   };
