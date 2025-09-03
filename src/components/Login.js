@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Separator } from './ui/separator';
 import { useAuth } from '../context/AuthContext';
 
+
 import { Lock, Mail, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 const Login = () => {
@@ -17,6 +18,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
+
 
 
   const handleSubmit = async (e) => {

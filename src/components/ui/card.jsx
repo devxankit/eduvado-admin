@@ -31,7 +31,7 @@ const CardTitle = React.forwardRef(({ className, children, ...props }, ref) => (
     )}
     {...props}
   >
-    {children || "Card Title"}
+    {children}
   </h3>
 ))
 CardTitle.displayName = "CardTitle"
