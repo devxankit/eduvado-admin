@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Badge } from './ui/badge';
-import { Separator } from './ui/separator';
+
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Select from '@radix-ui/react-select';
 import * as Tabs from '@radix-ui/react-tabs';
-import * as Tooltip from '@radix-ui/react-tooltip';
+
 import axios from 'axios';
 import config from '../config/config';
 import {
@@ -25,11 +25,8 @@ import {
   CheckCircle,
   AlertTriangle,
   DollarSign,
-  Calendar,
   RefreshCw,
-  FileText,
-  ArrowUpRight,
-  ArrowDownRight
+  FileText
 } from 'lucide-react';
 
 const SubscriptionManagement = () => {

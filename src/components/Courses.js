@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { Badge } from './ui/badge';
+
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Select from '@radix-ui/react-select';
 import axios from 'axios';
@@ -17,12 +17,9 @@ import {
   Edit, 
   Trash2, 
   Search, 
-  Filter,
   Clock,
   DollarSign,
   Tag,
-  ImageIcon,
-  FileText,
   RefreshCw
 } from 'lucide-react';
 

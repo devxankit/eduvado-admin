@@ -6,7 +6,7 @@ import { toast } from 'react-toastify';
 import axios from 'axios';
 import config from '../config/config';
 import RichTextEditor from './RichTextEditor';
-import { Shield, Info, Save, RefreshCw } from 'lucide-react';
+import { Shield, Info, RefreshCw } from 'lucide-react';
 
 const PrivacyPolicy = () => {
   const [currentPolicy, setCurrentPolicy] = useState(null);

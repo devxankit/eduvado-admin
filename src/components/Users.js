@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { Badge } from './ui/badge';
+
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Select from '@radix-ui/react-select';
 import axios from 'axios';
@@ -14,11 +14,7 @@ import config from '../config/config';
 import { 
   Users as UsersIcon, 
   Search, 
-  Filter, 
-  MoreVertical, 
   Edit, 
-  Trash2, 
-  Eye, 
   Mail, 
   Calendar,
   Shield,
