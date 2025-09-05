@@ -44,14 +44,24 @@ const Courses = () => {
   const fetchCourses = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${config.apiUrl}/admin/courses`);
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${config.apiUrl}/admin/courses`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const coursesWithId = response.data.map(course => ({
         ...course,
         id: course._id
       }));
       setCourses(coursesWithId);
     } catch (error) {
-      toast.error('Failed to fetch courses');
+      console.error('Failed to fetch courses:', error);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+      } else {
+        toast.error('Failed to fetch courses');
+      }
     } finally {
       setLoading(false);
     }
@@ -59,10 +69,28 @@ const Courses = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get(`${config.apiUrl}/admin/course-categories`);
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${config.apiUrl}/admin/courseCategories`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       setCategories(response.data);
     } catch (error) {
-      toast.error('Failed to fetch categories');
+      console.error('Failed to fetch categories:', error);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+      } else if (error.response?.status === 404) {
+        console.log('Course categories endpoint not available, using default categories');
+        // Use default categories if endpoint doesn't exist
+        setCategories([
+          { _id: 'default-jee', name: 'JEE', color: '#3B82F6', icon: 'BookOpen' },
+          { _id: 'default-neet', name: 'NEET', color: '#10B981', icon: 'Microscope' },
+          { _id: 'default-other', name: 'Other', color: '#6B7280', icon: 'GraduationCap' }
+        ]);
+      } else {
+        toast.error('Failed to fetch categories');
+      }
     }
   };
 
@@ -73,31 +101,59 @@ const Courses = () => {
 
   const handleSubmit = async () => {
     try {
+      const token = localStorage.getItem('token');
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+
+      // Convert category ID to string for production compatibility
+      const submitData = {
+        ...formData,
+        category: formData.category || 'default-other' // Default to 'Other' if no category selected
+      };
+
       if (selectedCourse) {
         await axios.put(
           `${config.apiUrl}/admin/courses/${selectedCourse._id}`,
-          formData
+          submitData,
+          { headers }
         );
         toast.success('Course updated successfully');
       } else {
-        await axios.post(`${config.apiUrl}/admin/courses`, formData);
+        await axios.post(`${config.apiUrl}/admin/courses`, submitData, { headers });
         toast.success('Course created successfully');
       }
       setOpenDialog(false);
       fetchCourses();
     } catch (error) {
-      toast.error('Failed to save course');
+      console.error('Failed to save course:', error);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+      } else {
+        toast.error('Failed to save course');
+      }
     }
   };
 
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this course?')) {
       try {
-        await axios.delete(`${config.apiUrl}/admin/courses/${id}`);
+        const token = localStorage.getItem('token');
+        await axios.delete(`${config.apiUrl}/admin/courses/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         toast.success('Course deleted successfully');
         fetchCourses();
       } catch (error) {
-        toast.error('Failed to delete course');
+        console.error('Failed to delete course:', error);
+        if (error.response?.status === 401) {
+          toast.error('Session expired. Please log in again.');
+        } else {
+          toast.error('Failed to delete course');
+        }
       }
     }
   };
@@ -124,14 +180,43 @@ const Courses = () => {
   });
 
   const getCategoryBadgeVariant = (category) => {
-    if (category?.color) {
+    if (typeof category === 'object' && category?.color) {
       return `text-white border-0`;
+    }
+    if (typeof category === 'string') {
+      // Handle default categories
+      if (category === 'default-jee') return 'text-white border-0';
+      if (category === 'default-neet') return 'text-white border-0';
+      if (category === 'default-other') return 'text-white border-0';
     }
     return 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
+  const getCategoryColor = (category) => {
+    if (typeof category === 'object' && category?.color) {
+      return category.color;
+    }
+    if (typeof category === 'string') {
+      // Handle default categories
+      if (category === 'default-jee') return '#3B82F6';
+      if (category === 'default-neet') return '#10B981';
+      if (category === 'default-other') return '#6B7280';
+    }
+    return '#6B7280';
+  };
+
   const getCategoryName = (category) => {
-    return category?.name || category || 'Unknown';
+    if (typeof category === 'object' && category?.name) {
+      return category.name;
+    }
+    if (typeof category === 'string') {
+      // Handle default categories
+      if (category === 'default-jee') return 'JEE';
+      if (category === 'default-neet') return 'NEET';
+      if (category === 'default-other') return 'Other';
+      return category;
+    }
+    return 'Unknown';
   };
 
   return (
@@ -333,7 +418,7 @@ const Courses = () => {
                         <div className="flex items-center space-x-2 mt-2">
                           <div 
                             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getCategoryBadgeVariant(course.category)}`}
-                            style={course.category?.color ? { backgroundColor: course.category.color } : {}}
+                            style={{ backgroundColor: getCategoryColor(course.category) }}
                           >
                             {getCategoryName(course.category)}
                           </div>

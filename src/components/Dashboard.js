@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import config from '../config/config';
+import { useAuth } from '../context/AuthContext';
 import { 
   Users, 
   BookOpen, 
@@ -18,6 +19,7 @@ import {
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalCourses: 0,
@@ -32,9 +34,27 @@ const Dashboard = () => {
         const token = localStorage.getItem('token');
         console.log('Dashboard: Token from localStorage:', token ? 'Present' : 'Missing');
         
+        if (!token) {
+          console.error('No authentication token found');
+          toast.error('Please log in to access dashboard');
+          logout();
+          return;
+        }
+
+        // Skip token verification for production compatibility
+        console.log('Skipping token verification for production compatibility');
+        
         const [usersResponse, coursesResponse] = await Promise.all([
-          axios.get(`${config.apiUrl}/admin/users`),
-          axios.get(`${config.apiUrl}/admin/courses`),
+          axios.get(`${config.apiUrl}/admin/users`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          }),
+          axios.get(`${config.apiUrl}/admin/courses`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          }),
         ]);
 
         const users = usersResponse.data;
@@ -49,14 +69,24 @@ const Dashboard = () => {
 
       } catch (error) {
         console.error('Dashboard fetch error:', error.response?.status, error.response?.data);
-        toast.error('Failed to fetch dashboard statistics');
+        
+        if (error.response?.status === 401) {
+          toast.error('Session expired. Please log in again.');
+          logout();
+        } else if (error.response?.status === 404) {
+          toast.error('API endpoint not found. Please check your configuration.');
+        } else {
+          toast.error('Failed to fetch dashboard statistics');
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchDashboardData();
-  }, []);
+    if (user) {
+      fetchDashboardData();
+    }
+  }, [user, logout]);
 
   const statCards = [
     {

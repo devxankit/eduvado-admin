@@ -40,10 +40,29 @@ const CourseCategories = () => {
   const fetchCategories = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${config.apiUrl}/admin/course-categories`);
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${config.apiUrl}/admin/courseCategories`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       setCategories(response.data);
     } catch (error) {
-      toast.error('Failed to fetch categories');
+      console.error('Failed to fetch categories:', error);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+      } else if (error.response?.status === 404) {
+        console.log('Course categories endpoint not available, using default categories');
+        // Use default categories if endpoint doesn't exist
+        setCategories([
+          { _id: 'default-jee', name: 'JEE', description: 'Joint Entrance Examination preparation courses', color: '#3B82F6', icon: 'BookOpen', isActive: true, sortOrder: 1 },
+          { _id: 'default-neet', name: 'NEET', description: 'National Eligibility cum Entrance Test preparation courses', color: '#10B981', icon: 'Microscope', isActive: true, sortOrder: 2 },
+          { _id: 'default-other', name: 'Other', description: 'Other educational courses', color: '#6B7280', icon: 'GraduationCap', isActive: true, sortOrder: 3 }
+        ]);
+        toast.info('Course categories feature not available in current version. Using default categories.');
+      } else {
+        toast.error('Failed to fetch categories');
+      }
     } finally {
       setLoading(false);
     }
@@ -55,31 +74,61 @@ const CourseCategories = () => {
 
   const handleSubmit = async () => {
     try {
+      const token = localStorage.getItem('token');
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+
       if (selectedCategory) {
         await axios.put(
-          `${config.apiUrl}/admin/course-categories/${selectedCategory._id}`,
-          formData
+          `${config.apiUrl}/admin/courseCategories/${selectedCategory._id}`,
+          formData,
+          { headers }
         );
         toast.success('Category updated successfully');
       } else {
-        await axios.post(`${config.apiUrl}/admin/course-categories`, formData);
+        await axios.post(
+          `${config.apiUrl}/admin/courseCategories`, 
+          formData,
+          { headers }
+        );
         toast.success('Category created successfully');
       }
       setOpenDialog(false);
       fetchCategories();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to save category');
+      console.error('Failed to save category:', error);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+      } else if (error.response?.status === 404) {
+        toast.error('Course categories feature not available in current version.');
+      } else {
+        toast.error(error.response?.data?.message || 'Failed to save category');
+      }
     }
   };
 
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this category?')) {
       try {
-        await axios.delete(`${config.apiUrl}/admin/course-categories/${id}`);
+        const token = localStorage.getItem('token');
+        await axios.delete(`${config.apiUrl}/admin/courseCategories/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         toast.success('Category deleted successfully');
         fetchCategories();
       } catch (error) {
-        toast.error(error.response?.data?.message || 'Failed to delete category');
+        console.error('Failed to delete category:', error);
+        if (error.response?.status === 401) {
+          toast.error('Session expired. Please log in again.');
+        } else if (error.response?.status === 404) {
+          toast.error('Course categories feature not available in current version.');
+        } else {
+          toast.error(error.response?.data?.message || 'Failed to delete category');
+        }
       }
     }
   };
