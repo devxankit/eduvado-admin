@@ -14,7 +14,9 @@ import {
   DollarSign, 
   Calendar,
   RefreshCw,
-  ArrowRight
+  ArrowRight,
+  Tag,
+  Settings
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -25,6 +27,8 @@ const Dashboard = () => {
     totalCourses: 0,
     activeSubscriptions: 0,
     totalRevenue: 0,
+    totalCategories: 0,
+    activeCategories: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -44,7 +48,7 @@ const Dashboard = () => {
         // Skip token verification for production compatibility
         console.log('Skipping token verification for production compatibility');
         
-        const [usersResponse, coursesResponse] = await Promise.all([
+        const [usersResponse, coursesResponse, categoriesResponse] = await Promise.all([
           axios.get(`${config.apiUrl}/admin/users`, {
             headers: {
               'Authorization': `Bearer ${token}`
@@ -55,16 +59,24 @@ const Dashboard = () => {
               'Authorization': `Bearer ${token}`
             }
           }),
+          axios.get(`${config.apiUrl}/admin/courseCategories`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          }).catch(() => ({ data: [] })), // Handle 404 for categories
         ]);
 
         const users = usersResponse.data;
         const courses = coursesResponse.data;
+        const categories = categoriesResponse.data;
 
         setStats({
           totalUsers: users.length,
           totalCourses: courses.length,
           activeSubscriptions: Math.floor(users.length * 0.75), // Calculated from user data
           totalRevenue: courses.reduce((sum, course) => sum + (parseFloat(course.price) || 0), 0),
+          totalCategories: categories.length,
+          activeCategories: categories.filter(cat => cat.isActive !== false).length,
         });
 
       } catch (error) {
@@ -132,6 +144,28 @@ const Dashboard = () => {
       textColor: 'text-orange-600',
       path: '/subscriptions',
       delay: 0.4
+    },
+    {
+      title: 'Total Categories',
+      value: stats.totalCategories,
+      icon: <Tag className="h-8 w-8" />,
+      description: 'Course categories',
+      color: 'from-indigo-500 to-indigo-600',
+      bgColor: 'bg-indigo-50',
+      textColor: 'text-indigo-600',
+      path: '/course-categories',
+      delay: 0.5
+    },
+    {
+      title: 'Active Categories',
+      value: stats.activeCategories,
+      icon: <Settings className="h-8 w-8" />,
+      description: 'Currently active',
+      color: 'from-teal-500 to-teal-600',
+      bgColor: 'bg-teal-50',
+      textColor: 'text-teal-600',
+      path: '/course-categories',
+      delay: 0.6
     }
   ];
 
@@ -166,7 +200,7 @@ const Dashboard = () => {
       </motion.div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
         {statCards.map((card, index) => (
           <motion.div
             key={card.title}
@@ -263,6 +297,14 @@ const Dashboard = () => {
                   >
                     <TrendingUp className="h-4 w-4 mr-2" />
                     View Subscriptions
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => navigate('/course-categories')}
+                  >
+                    <Tag className="h-4 w-4 mr-2" />
+                    Manage Categories
                   </Button>
                 </div>
               </div>

@@ -18,7 +18,17 @@ import {
   Trash2, 
   Search, 
   RefreshCw,
-  Palette
+  Palette,
+  Settings,
+  Eye,
+  EyeOff,
+  ArrowUpDown,
+  Filter,
+  MoreVertical,
+  BookOpen,
+  AlertCircle,
+  CheckCircle,
+  XCircle
 } from 'lucide-react';
 
 const CourseCategories = () => {
@@ -27,6 +37,9 @@ const CourseCategories = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showInactive, setShowInactive] = useState(false);
+  const [sortBy, setSortBy] = useState('sortOrder');
+  const [showFilters, setShowFilters] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -34,32 +47,30 @@ const CourseCategories = () => {
     icon: 'BookOpen',
     sortOrder: 0
   });
+  const [formErrors, setFormErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchCategories = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${config.apiUrl}/admin/courseCategories`, {
+      const response = await axios.get(`${config.apiUrl}/admin/courseCategories?includeInactive=${showInactive}&sortBy=${sortBy}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
-      setCategories(response.data);
+      
+      if (response.data.success) {
+        setCategories(response.data.categories);
+      } else {
+        throw new Error(response.data.message || 'Failed to fetch categories');
+      }
     } catch (error) {
       console.error('Failed to fetch categories:', error);
       if (error.response?.status === 401) {
         toast.error('Session expired. Please log in again.');
-      } else if (error.response?.status === 404) {
-        console.log('Course categories endpoint not available, using default categories');
-        // Use default categories if endpoint doesn't exist
-        setCategories([
-          { _id: 'default-jee', name: 'JEE', description: 'Joint Entrance Examination preparation courses', color: '#3B82F6', icon: 'BookOpen', isActive: true, sortOrder: 1 },
-          { _id: 'default-neet', name: 'NEET', description: 'National Eligibility cum Entrance Test preparation courses', color: '#10B981', icon: 'Microscope', isActive: true, sortOrder: 2 },
-          { _id: 'default-other', name: 'Other', description: 'Other educational courses', color: '#6B7280', icon: 'GraduationCap', isActive: true, sortOrder: 3 }
-        ]);
-        toast.info('Course categories feature not available in current version. Using default categories.');
       } else {
-        toast.error('Failed to fetch categories');
+        toast.error(error.response?.data?.message || 'Failed to fetch categories');
       }
     } finally {
       setLoading(false);
@@ -68,9 +79,42 @@ const CourseCategories = () => {
 
   useEffect(() => {
     fetchCategories();
-  }, []);
+  }, [showInactive, sortBy]);
+
+  const validateForm = () => {
+    const errors = {};
+    
+    if (!formData.name.trim()) {
+      errors.name = 'Category name is required';
+    } else if (formData.name.trim().length < 2) {
+      errors.name = 'Category name must be at least 2 characters long';
+    } else if (formData.name.trim().length > 50) {
+      errors.name = 'Category name cannot exceed 50 characters';
+    }
+    
+    if (!formData.description.trim()) {
+      errors.description = 'Category description is required';
+    } else if (formData.description.trim().length < 10) {
+      errors.description = 'Category description must be at least 10 characters long';
+    } else if (formData.description.trim().length > 200) {
+      errors.description = 'Category description cannot exceed 200 characters';
+    }
+    
+    if (formData.sortOrder < 0) {
+      errors.sortOrder = 'Sort order cannot be negative';
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleSubmit = async () => {
+    if (!validateForm()) {
+      toast.error('Please fix the form errors');
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
       const token = localStorage.getItem('token');
       const headers = {
@@ -78,55 +122,110 @@ const CourseCategories = () => {
         'Content-Type': 'application/json'
       };
 
+      const submitData = {
+        ...formData,
+        name: formData.name.trim(),
+        description: formData.description.trim()
+      };
+
       if (selectedCategory) {
-        await axios.put(
+        const response = await axios.put(
           `${config.apiUrl}/admin/courseCategories/${selectedCategory._id}`,
-          formData,
+          submitData,
           { headers }
         );
-        toast.success('Category updated successfully');
+        
+        if (response.data.success) {
+          toast.success('Category updated successfully');
+        } else {
+          throw new Error(response.data.message);
+        }
       } else {
-        await axios.post(
+        const response = await axios.post(
           `${config.apiUrl}/admin/courseCategories`, 
-          formData,
+          submitData,
           { headers }
         );
-        toast.success('Category created successfully');
+        
+        if (response.data.success) {
+          toast.success('Category created successfully');
+        } else {
+          throw new Error(response.data.message);
+        }
       }
+      
       setOpenDialog(false);
+      resetForm();
       fetchCategories();
     } catch (error) {
       console.error('Failed to save category:', error);
       if (error.response?.status === 401) {
         toast.error('Session expired. Please log in again.');
-      } else if (error.response?.status === 404) {
-        toast.error('Course categories feature not available in current version.');
+      } else if (error.response?.status === 400) {
+        const errorData = error.response.data;
+        if (errorData.errors) {
+          setFormErrors(errorData.errors.reduce((acc, err) => ({ ...acc, [err.field]: err.message }), {}));
+        } else {
+          toast.error(errorData.message || 'Validation error');
+        }
       } else {
         toast.error(error.response?.data?.message || 'Failed to save category');
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this category?')) {
+    if (window.confirm('Are you sure you want to delete this category? This action cannot be undone.')) {
       try {
         const token = localStorage.getItem('token');
-        await axios.delete(`${config.apiUrl}/admin/courseCategories/${id}`, {
+        const response = await axios.delete(`${config.apiUrl}/admin/courseCategories/${id}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
-        toast.success('Category deleted successfully');
-        fetchCategories();
+        
+        if (response.data.success) {
+          toast.success('Category deleted successfully');
+          fetchCategories();
+        } else {
+          throw new Error(response.data.message);
+        }
       } catch (error) {
         console.error('Failed to delete category:', error);
         if (error.response?.status === 401) {
           toast.error('Session expired. Please log in again.');
-        } else if (error.response?.status === 404) {
-          toast.error('Course categories feature not available in current version.');
+        } else if (error.response?.status === 400) {
+          toast.error(error.response.data.message || 'Cannot delete category');
         } else {
           toast.error(error.response?.data?.message || 'Failed to delete category');
         }
+      }
+    }
+  };
+
+  const handleToggleStatus = async (id, currentStatus) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.patch(`${config.apiUrl}/admin/courseCategories/${id}/toggle`, {}, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.data.success) {
+        toast.success(response.data.message);
+        fetchCategories();
+      } else {
+        throw new Error(response.data.message);
+      }
+    } catch (error) {
+      console.error('Failed to toggle category status:', error);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+      } else {
+        toast.error(error.response?.data?.message || 'Failed to toggle category status');
       }
     }
   };
@@ -140,6 +239,24 @@ const CourseCategories = () => {
       icon: category.icon,
       sortOrder: category.sortOrder
     });
+    setFormErrors({});
+    setOpenDialog(true);
+  };
+
+  const resetForm = () => {
+    setSelectedCategory(null);
+    setFormData({
+      name: '',
+      description: '',
+      color: '#3B82F6',
+      icon: 'BookOpen',
+      sortOrder: 0
+    });
+    setFormErrors({});
+  };
+
+  const handleCreateNew = () => {
+    resetForm();
     setOpenDialog(true);
   };
 
@@ -151,7 +268,15 @@ const CourseCategories = () => {
   const iconOptions = [
     'BookOpen', 'GraduationCap', 'Laptop', 'Code', 'Calculator', 
     'Microscope', 'Atom', 'Dna', 'FlaskConical', 'Brain',
-    'Lightbulb', 'Target', 'Trophy', 'Star', 'Award'
+    'Lightbulb', 'Target', 'Trophy', 'Star', 'Award', 'Users',
+    'Book', 'PenTool', 'Layers', 'Puzzle', 'Rocket'
+  ];
+
+  const sortOptions = [
+    { value: 'sortOrder', label: 'Sort Order' },
+    { value: 'name', label: 'Name' },
+    { value: 'courseCount', label: 'Course Count' },
+    { value: 'createdAt', label: 'Date Created' }
   ];
 
   return (
@@ -165,38 +290,76 @@ const CourseCategories = () => {
       >
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Course Categories</h1>
-          <p className="text-gray-600 mt-1">Manage course categories and organization</p>
+          <p className="text-gray-600 mt-1">Organize your courses with categories</p>
         </div>
         <div className="flex items-center space-x-3">
-          <Button variant="outline" size="sm" onClick={fetchCategories}>
-            <RefreshCw className="h-4 w-4 mr-2" />
+          <Button variant="outline" size="sm" onClick={fetchCategories} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
           <Button
-            onClick={() => {
-              setSelectedCategory(null);
-              setFormData({
-                name: '',
-                description: '',
-                color: '#3B82F6',
-                icon: 'BookOpen',
-                sortOrder: 0
-              });
-              setOpenDialog(true);
-            }}
+            variant="outline"
+            size="sm"
+            onClick={() => setShowFilters(!showFilters)}
           >
+            <Filter className="h-4 w-4 mr-2" />
+            Filters
+          </Button>
+          <Button onClick={handleCreateNew}>
             <Plus className="h-4 w-4 mr-2" />
             Add Category
           </Button>
         </div>
       </motion.div>
 
+      {/* Filters */}
+      {showFilters && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          className="p-4 border rounded-lg bg-gray-50"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label>Sort By</Label>
+              <Select.Root value={sortBy} onValueChange={setSortBy}>
+                <Select.Trigger className="w-full">
+                  <Select.Value />
+                </Select.Trigger>
+                <Select.Portal>
+                  <Select.Content>
+                    <Select.Viewport className="p-1">
+                      {sortOptions.map((option) => (
+                        <Select.Item key={option.value} value={option.value}>
+                          <Select.ItemText>{option.label}</Select.ItemText>
+                        </Select.Item>
+                      ))}
+                    </Select.Viewport>
+                  </Select.Content>
+                </Select.Portal>
+              </Select.Root>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="showInactive"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+                className="rounded"
+              />
+              <Label htmlFor="showInactive">Show Inactive Categories</Label>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       {/* Stats Cards */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1, duration: 0.5 }}
-        className="grid grid-cols-1 md:grid-cols-3 gap-6"
+        className="grid grid-cols-1 md:grid-cols-4 gap-6"
       >
         <Card className="border-0 shadow-sm">
           <CardContent className="p-6">
@@ -217,12 +380,12 @@ const CourseCategories = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Active Categories</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-2xl font-bold text-green-600">
                   {categories.filter(c => c.isActive).length}
                 </p>
               </div>
               <div className="p-3 rounded-lg bg-green-50">
-                <Tag className="h-6 w-6 text-green-600" />
+                <CheckCircle className="h-6 w-6 text-green-600" />
               </div>
             </div>
           </CardContent>
@@ -233,12 +396,28 @@ const CourseCategories = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Inactive Categories</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-2xl font-bold text-gray-600">
                   {categories.filter(c => !c.isActive).length}
                 </p>
               </div>
               <div className="p-3 rounded-lg bg-gray-50">
-                <Tag className="h-6 w-6 text-gray-600" />
+                <XCircle className="h-6 w-6 text-gray-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Courses</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {categories.reduce((sum, cat) => sum + (cat.courseCount || 0), 0)}
+                </p>
+              </div>
+              <div className="p-3 rounded-lg bg-purple-50">
+                <BookOpen className="h-6 w-6 text-purple-600" />
               </div>
             </div>
           </CardContent>
@@ -316,6 +495,14 @@ const CourseCategories = () => {
                         <Button
                           variant="ghost"
                           size="sm"
+                          onClick={() => handleToggleStatus(category._id, category.isActive)}
+                          className={category.isActive ? "text-green-600 hover:text-green-700" : "text-gray-400 hover:text-gray-600"}
+                        >
+                          {category.isActive ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleEdit(category)}
                         >
                           <Edit className="h-4 w-4" />
@@ -342,9 +529,15 @@ const CourseCategories = () => {
                       >
                         {category.isActive ? 'Active' : 'Inactive'}
                       </Badge>
-                      <div className="flex items-center space-x-1 text-xs text-gray-500">
-                        <Palette className="h-3 w-3" />
-                        <span>{category.color}</span>
+                      <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-1 text-xs text-gray-500">
+                          <BookOpen className="h-3 w-3" />
+                          <span>{category.courseCount || 0} courses</span>
+                        </div>
+                        <div className="flex items-center space-x-1 text-xs text-gray-500">
+                          <Palette className="h-3 w-3" />
+                          <span>{category.color}</span>
+                        </div>
                       </div>
                     </div>
                   </motion.div>
@@ -354,7 +547,11 @@ const CourseCategories = () => {
                   <div className="col-span-full text-center py-12">
                     <Tag className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 mb-2">No categories found</h3>
-                    <p className="text-gray-500">Try adjusting your search criteria or create a new category.</p>
+                    <p className="text-gray-500 mb-4">Try adjusting your search criteria or create a new category.</p>
+                    <Button onClick={handleCreateNew}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create First Category
+                    </Button>
                   </div>
                 )}
               </div>
@@ -380,13 +577,20 @@ const CourseCategories = () => {
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Category Name</Label>
+                  <Label htmlFor="name">Category Name *</Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="Enter category name"
+                    className={formErrors.name ? 'border-red-500' : ''}
                   />
+                  {formErrors.name && (
+                    <p className="text-sm text-red-500 flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-1" />
+                      {formErrors.name}
+                    </p>
+                  )}
                 </div>
                 
                 <div className="space-y-2">
@@ -397,20 +601,34 @@ const CourseCategories = () => {
                     value={formData.sortOrder}
                     onChange={(e) => setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })}
                     placeholder="0"
+                    min="0"
+                    className={formErrors.sortOrder ? 'border-red-500' : ''}
                   />
+                  {formErrors.sortOrder && (
+                    <p className="text-sm text-red-500 flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-1" />
+                      {formErrors.sortOrder}
+                    </p>
+                  )}
                 </div>
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description">Description *</Label>
                 <textarea
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Enter category description"
-                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className={`flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${formErrors.description ? 'border-red-500' : ''}`}
                   rows={3}
                 />
+                {formErrors.description && (
+                  <p className="text-sm text-red-500 flex items-center">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    {formErrors.description}
+                  </p>
+                )}
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -456,11 +674,20 @@ const CourseCategories = () => {
             </div>
             
             <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setOpenDialog(false)}>
+              <Button variant="outline" onClick={() => setOpenDialog(false)} disabled={isSubmitting}>
                 Cancel
               </Button>
-              <Button onClick={handleSubmit}>
-                {selectedCategory ? 'Update Category' : 'Create Category'}
+              <Button onClick={handleSubmit} disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    {selectedCategory ? 'Updating...' : 'Creating...'}
+                  </>
+                ) : (
+                  <>
+                    {selectedCategory ? 'Update Category' : 'Create Category'}
+                  </>
+                )}
               </Button>
             </div>
           </Dialog.Content>
