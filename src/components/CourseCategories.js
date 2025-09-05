@@ -18,9 +18,7 @@ import {
   Trash2, 
   Search, 
   RefreshCw,
-  Palette,
-  Type,
-  Hash
+  Palette
 } from 'lucide-react';
 
 const CourseCategories = () => {
