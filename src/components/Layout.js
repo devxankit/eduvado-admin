@@ -25,7 +25,8 @@ import {
   HelpCircle,
   Zap,
   Star,
-  MessageSquare
+  MessageSquare,
+  Tag
 } from 'lucide-react';
 
 const Layout = () => {
@@ -57,6 +58,12 @@ const Layout = () => {
           icon: <BookOpen className="h-5 w-5" />, 
           path: '/courses',
           description: 'Course management'
+        },
+        { 
+          text: 'Categories', 
+          icon: <Tag className="h-5 w-5" />, 
+          path: '/course-categories',
+          description: 'Course categories'
         },
         { 
           text: 'Subscriptions', 

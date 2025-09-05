@@ -26,6 +26,7 @@ import {
 
 const Courses = () => {
   const [courses, setCourses] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState(null);
@@ -56,8 +57,18 @@ const Courses = () => {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const response = await axios.get(`${config.apiUrl}/admin/course-categories`);
+      setCategories(response.data);
+    } catch (error) {
+      toast.error('Failed to fetch categories');
+    }
+  };
+
   useEffect(() => {
     fetchCourses();
+    fetchCategories();
   }, []);
 
   const handleSubmit = async () => {
@@ -96,7 +107,7 @@ const Courses = () => {
     setFormData({
       title: course.title,
       description: course.description,
-      category: course.category,
+      category: course.category?._id || course.category,
       price: course.price,
       duration: course.duration,
       image: course.image,
@@ -107,21 +118,20 @@ const Courses = () => {
   const filteredCourses = courses.filter(course => {
     const matchesSearch = course.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          course.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = filterCategory === 'all' || course.category === filterCategory;
+    const matchesCategory = filterCategory === 'all' || 
+                           (course.category?._id || course.category) === filterCategory;
     return matchesSearch && matchesCategory;
   });
 
   const getCategoryBadgeVariant = (category) => {
-    switch (category) {
-      case 'JEE':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'NEET':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'Other':
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+    if (category?.color) {
+      return `text-white border-0`;
     }
+    return 'bg-gray-100 text-gray-800 border-gray-200';
+  };
+
+  const getCategoryName = (category) => {
+    return category?.name || category || 'Unknown';
   };
 
   return (
@@ -187,13 +197,13 @@ const Courses = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">JEE Courses</p>
+                <p className="text-sm font-medium text-gray-600">Active Courses</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {courses.filter(c => c.category === 'JEE').length}
+                  {courses.filter(c => c.isActive !== false).length}
                 </p>
               </div>
-              <div className="p-3 rounded-lg bg-blue-50">
-                <Tag className="h-6 w-6 text-blue-600" />
+              <div className="p-3 rounded-lg bg-green-50">
+                <Tag className="h-6 w-6 text-green-600" />
               </div>
             </div>
           </CardContent>
@@ -203,13 +213,13 @@ const Courses = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">NEET Courses</p>
+                <p className="text-sm font-medium text-gray-600">Categories</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {courses.filter(c => c.category === 'NEET').length}
+                  {categories.length}
                 </p>
               </div>
-              <div className="p-3 rounded-lg bg-green-50">
-                <Tag className="h-6 w-6 text-green-600" />
+              <div className="p-3 rounded-lg bg-purple-50">
+                <Tag className="h-6 w-6 text-purple-600" />
               </div>
             </div>
           </CardContent>
@@ -259,15 +269,15 @@ const Courses = () => {
                 <Select.Item value="all" className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
                   <Select.ItemText>All Categories</Select.ItemText>
                 </Select.Item>
-                <Select.Item value="JEE" className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
-                  <Select.ItemText>JEE</Select.ItemText>
-                </Select.Item>
-                <Select.Item value="NEET" className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
-                  <Select.ItemText>NEET</Select.ItemText>
-                </Select.Item>
-                <Select.Item value="Other" className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
-                  <Select.ItemText>Other</Select.ItemText>
-                </Select.Item>
+                {categories.map((category) => (
+                  <Select.Item 
+                    key={category._id} 
+                    value={category._id} 
+                    className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                  >
+                    <Select.ItemText>{category.name}</Select.ItemText>
+                  </Select.Item>
+                ))}
               </Select.Viewport>
             </Select.Content>
           </Select.Portal>
@@ -321,8 +331,11 @@ const Courses = () => {
                         <h3 className="font-medium text-gray-900">{course.title}</h3>
                         <p className="text-sm text-gray-500 line-clamp-2">{course.description}</p>
                         <div className="flex items-center space-x-2 mt-2">
-                          <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getCategoryBadgeVariant(course.category)}`}>
-                            {course.category}
+                          <div 
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getCategoryBadgeVariant(course.category)}`}
+                            style={course.category?.color ? { backgroundColor: course.category.color } : {}}
+                          >
+                            {getCategoryName(course.category)}
                           </div>
                           <div className="flex items-center space-x-1 text-xs text-gray-500">
                             <DollarSign className="h-3 w-3" />
@@ -373,7 +386,7 @@ const Courses = () => {
       <Dialog.Root open={openDialog} onOpenChange={setOpenDialog}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-          <Dialog.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg">
+          <Dialog.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-2xl max-h-[90vh] overflow-y-auto translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg">
                           <div>
                 <Dialog.Title className="text-lg font-semibold leading-none tracking-tight">
                   {selectedCourse ? 'Edit Course' : 'Add New Course'}
@@ -384,85 +397,81 @@ const Courses = () => {
               </div>
              
               <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Title</Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="Enter course title"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Enter course description"
-                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  rows={4}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                <Select.Root value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
-                  <Select.Trigger className="w-full">
-                    <Select.Value placeholder="Select a category" />
-                  </Select.Trigger>
-                  <Select.Portal>
-                    <Select.Content>
-                      <Select.Viewport className="p-1">
-                        <Select.Item value="JEE">
-                          <Select.ItemText>JEE</Select.ItemText>
-                        </Select.Item>
-                        <Select.Item value="NEET">
-                          <Select.ItemText>NEET</Select.ItemText>
-                        </Select.Item>
-                        <Select.Item value="Other">
-                          <Select.ItemText>Other</Select.ItemText>
-                        </Select.Item>
-                      </Select.Viewport>
-                    </Select.Content>
-                  </Select.Portal>
-                </Select.Root>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Price (₹)</Label>
+                  <Label htmlFor="title">Title</Label>
                   <Input
-                    id="price"
-                    type="number"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    placeholder="0"
+                    id="title"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    placeholder="Enter course title"
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="duration">Duration</Label>
+                  <Label htmlFor="description">Description</Label>
+                  <textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Enter course description"
+                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    rows={4}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category</Label>
+                  <Select.Root value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
+                    <Select.Trigger className="w-full">
+                      <Select.Value placeholder="Select a category" />
+                    </Select.Trigger>
+                    <Select.Portal>
+                      <Select.Content>
+                        <Select.Viewport className="p-1">
+                          {categories.map((category) => (
+                            <Select.Item key={category._id} value={category._id}>
+                              <Select.ItemText>{category.name}</Select.ItemText>
+                            </Select.Item>
+                          ))}
+                        </Select.Viewport>
+                      </Select.Content>
+                    </Select.Portal>
+                  </Select.Root>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="price">Price (₹)</Label>
+                    <Input
+                      id="price"
+                      type="number"
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                      placeholder="0"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="duration">Duration</Label>
+                    <Input
+                      id="duration"
+                      value={formData.duration}
+                      onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+                      placeholder="e.g., 6 months"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="image">Image URL</Label>
                   <Input
-                    id="duration"
-                    value={formData.duration}
-                    onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-                    placeholder="e.g., 6 months"
+                    id="image"
+                    value={formData.image}
+                    onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                    placeholder="https://example.com/image.jpg"
                   />
                 </div>
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="image">Image URL</Label>
-                <Input
-                  id="image"
-                  value={formData.image}
-                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                  placeholder="https://example.com/image.jpg"
-                />
-              </div>
-            </div>
             
             <div className="flex justify-end space-x-2">
               <Button variant="outline" onClick={() => setOpenDialog(false)}>

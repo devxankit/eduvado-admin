@@ -8,6 +8,7 @@ import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import Users from './components/Users';
 import Courses from './components/Courses';
+import CourseCategories from './components/CourseCategories';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsAndConditions from './components/TermsAndConditions';
 import ReturnAndRefund from './components/ReturnAndRefund';
@@ -105,6 +106,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Courses />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="course-categories"
+              element={
+                <ProtectedRoute>
+                  <CourseCategories />
                 </ProtectedRoute>
               }
             />
