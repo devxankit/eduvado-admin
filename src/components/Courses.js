@@ -66,6 +66,8 @@ const Courses = () => {
     category: '',
     price: '',
     duration: '',
+    durationNumber: '',
+    durationUnit: 'months',
     image: '',
     instructor: '',
     level: 'Beginner',
@@ -177,8 +179,10 @@ const Courses = () => {
       errors.price = 'Please enter a valid price';
     }
     
-    if (!formData.duration.trim()) {
+    if (!formData.durationNumber || !formData.durationUnit) {
       errors.duration = 'Course duration is required';
+    } else if (parseInt(formData.durationNumber) < 1) {
+      errors.duration = 'Duration must be at least 1';
     }
     
     if (!formData.image.trim()) {
@@ -209,11 +213,16 @@ const Courses = () => {
         ...formData,
         title: formData.title.trim(),
         description: formData.description.trim(),
-        duration: formData.duration.trim(),
+        duration: `${formData.durationNumber} ${formData.durationUnit}`,
         image: formData.image.trim(),
         instructor: formData.instructor?.trim(),
         price: parseFloat(formData.price)
       };
+
+      // Remove the separate duration fields from the data sent to backend
+      delete submitData.durationNumber;
+      delete submitData.durationUnit;
+
 
       if (selectedCourse) {
         const response = await axios.put(
@@ -267,6 +276,8 @@ const Courses = () => {
       category: '',
       price: '',
       duration: '',
+      durationNumber: '',
+      durationUnit: 'months',
       image: '',
       instructor: '',
       level: 'Beginner',
@@ -305,13 +316,31 @@ const Courses = () => {
   };
 
   const handleEdit = (course) => {
+    // Parse existing duration
+    let durationNumber = '';
+    let durationUnit = 'months';
+    
+    if (course.duration) {
+      const durationMatch = course.duration.match(/^(\d+)\s*(days?|weeks?|months?|years?|hours?)$/i);
+      if (durationMatch) {
+        durationNumber = durationMatch[1];
+        durationUnit = durationMatch[2].toLowerCase();
+        // Normalize unit names
+        if (durationUnit.endsWith('s')) {
+          durationUnit = durationUnit.slice(0, -1);
+        }
+      }
+    }
+    
     setSelectedCourse(course);
     setFormData({
       title: course.title,
       description: course.description,
-      category: course.category?._id || course.category,
+      category: typeof course.category === 'object' && course.category?._id ? course.category._id : course.category,
       price: course.price,
       duration: course.duration,
+      durationNumber,
+      durationUnit,
       image: course.image,
       instructor: course.instructor || '',
       level: course.level || 'Beginner',
@@ -1144,13 +1173,46 @@ const Courses = () => {
                   
                   <div className="space-y-2">
                     <Label htmlFor="duration">Duration *</Label>
-                    <Input
-                      id="duration"
-                      value={formData.duration}
-                      onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-                      placeholder="e.g., 6 months, 12 weeks, 30 days"
-                      className={formErrors.duration ? 'border-red-500' : ''}
-                    />
+                    <div className="flex space-x-2">
+                      <Input
+                        id="durationNumber"
+                        type="number"
+                        value={formData.durationNumber || ''}
+                        onChange={(e) => setFormData({ ...formData, durationNumber: e.target.value })}
+                        placeholder="12"
+                        className={`flex-1 ${formErrors.duration ? 'border-red-500' : ''}`}
+                        min="1"
+                      />
+                      <Select.Root 
+                        value={formData.durationUnit || 'months'} 
+                        onValueChange={(value) => setFormData({ ...formData, durationUnit: value })}
+                      >
+                        <Select.Trigger className="w-32">
+                          <Select.Value placeholder="Unit" />
+                        </Select.Trigger>
+                        <Select.Portal>
+                          <Select.Content>
+                            <Select.Viewport className="p-1">
+                              <Select.Item value="days">
+                                <Select.ItemText>days</Select.ItemText>
+                              </Select.Item>
+                              <Select.Item value="weeks">
+                                <Select.ItemText>weeks</Select.ItemText>
+                              </Select.Item>
+                              <Select.Item value="months">
+                                <Select.ItemText>months</Select.ItemText>
+                              </Select.Item>
+                              <Select.Item value="years">
+                                <Select.ItemText>years</Select.ItemText>
+                              </Select.Item>
+                              <Select.Item value="hours">
+                                <Select.ItemText>hours</Select.ItemText>
+                              </Select.Item>
+                            </Select.Viewport>
+                          </Select.Content>
+                        </Select.Portal>
+                      </Select.Root>
+                    </div>
                     {formErrors.duration && (
                       <p className="text-sm text-red-500 flex items-center">
                         <AlertCircle className="h-4 w-4 mr-1" />
